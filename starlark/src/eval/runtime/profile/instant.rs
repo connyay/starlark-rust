@@ -20,11 +20,11 @@ use std::time::Duration;
 
 use allocative::Allocative;
 
-/// Real `Instant` for production code, thread-local counter for tests.
+/// Real `Instant` for production code, thread-local counter for tests and WASM.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub(crate) struct ProfilerInstant(
-    #[cfg(not(test))] std::time::Instant,
-    #[cfg(test)] u64, // Millis.
+    #[cfg(all(not(test), not(target_arch = "wasm32")))] std::time::Instant,
+    #[cfg(any(test, target_arch = "wasm32"))] u64, // Millis.
 );
 
 impl ProfilerInstant {
@@ -33,7 +33,7 @@ impl ProfilerInstant {
 
     #[inline]
     pub(crate) fn now() -> Self {
-        #[cfg(not(test))]
+        #[cfg(all(not(test), not(target_arch = "wasm32")))]
         {
             ProfilerInstant(std::time::Instant::now())
         }
@@ -48,15 +48,21 @@ impl ProfilerInstant {
                 r
             }))
         }
+        #[cfg(all(target_arch = "wasm32", not(test)))]
+        {
+            // WASM doesn't have a monotonic clock, so we return a constant.
+            // This means timing measurements will always be zero on WASM.
+            ProfilerInstant(0)
+        }
     }
 
     #[inline]
     pub(crate) fn duration_since(&self, earlier: ProfilerInstant) -> Duration {
-        #[cfg(not(test))]
+        #[cfg(all(not(test), not(target_arch = "wasm32")))]
         {
             self.0.duration_since(earlier.0)
         }
-        #[cfg(test)]
+        #[cfg(any(test, target_arch = "wasm32"))]
         {
             Duration::from_millis(self.0.checked_sub(earlier.0).unwrap())
         }
@@ -64,11 +70,11 @@ impl ProfilerInstant {
 
     #[inline]
     pub(crate) fn elapsed(&self) -> Duration {
-        #[cfg(not(test))]
+        #[cfg(all(not(test), not(target_arch = "wasm32")))]
         {
             self.0.elapsed()
         }
-        #[cfg(test)]
+        #[cfg(any(test, target_arch = "wasm32"))]
         {
             ProfilerInstant::now().duration_since(*self)
         }

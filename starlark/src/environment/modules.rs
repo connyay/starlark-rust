@@ -24,7 +24,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::mem;
 use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -49,6 +48,7 @@ use crate::environment::slots::MutableSlots;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -430,7 +430,7 @@ impl Module {
             extra_value,
             heap_profile_on_freeze,
         } = self;
-        let start = Instant::now();
+        let start = ProfilerInstant::now();
         // This is when we do the GC/freeze, using the module slots as roots
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
@@ -532,7 +532,6 @@ impl Module {
         self.docstring.replace(Some(docstring));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn add_eval_duration(&self, duration: Duration) {
         self.eval_duration.set(self.eval_duration.get() + duration);
     }
